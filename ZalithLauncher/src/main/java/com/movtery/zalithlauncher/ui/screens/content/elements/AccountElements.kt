@@ -1063,7 +1063,7 @@ fun SelectSkinModelDialog(
  * 更改皮肤流程需要让 uri 与皮肤模型深度绑定
  * 重置或者确认更改时，能更方便的处理数据
  */
-private sealed interface ChangeSkin {
+sealed interface ChangeSkin {
     data class ChangeSkinData(
         val skinUri: Uri,
         val skinModel: SkinModelType = SkinModelType.STEVE
