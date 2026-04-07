@@ -54,10 +54,13 @@ import com.movtery.zalithlauncher.game.account.yggdrasil.uploadSkin
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountSkinOperation
+import com.movtery.zalithlauncher.ui.screens.content.elements.ChangeSkinIntent
+import com.movtery.zalithlauncher.ui.screens.content.elements.ChangeSkinUiState
 import com.movtery.zalithlauncher.ui.screens.content.elements.LocalLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.MicrosoftLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.OtherLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.ServerOperation
+import com.movtery.zalithlauncher.ui.screens.content.elements.reduceChangeSkinState
 import com.movtery.zalithlauncher.utils.logging.Logger.lError
 import com.movtery.zalithlauncher.utils.network.safeBodyAsJson
 import com.movtery.zalithlauncher.utils.string.getMessageOrToString
@@ -110,7 +113,8 @@ data class AccountManageUiState(
     val otherLoginOperation: OtherLoginOperation = OtherLoginOperation.None,
     val serverOperation: ServerOperation = ServerOperation.None,
     val accountOperation: AccountOperation = AccountOperation.None,
-    val accountSkinOperationMap: Map<String, AccountSkinOperation> = emptyMap()
+    val accountSkinOperationMap: Map<String, AccountSkinOperation> = emptyMap(),
+    val changeSkinUiStateMap: Map<String, ChangeSkinUiState> = emptyMap()
 )
 
 /**
@@ -127,6 +131,12 @@ sealed class AccountManageIntent {
     data class UpdateAccountOp(val operation: AccountOperation) : AccountManageIntent()
     data class UpdateAccountSkinOp(val accountUuid: String, val operation: AccountSkinOperation) :
         AccountManageIntent()
+    data class DispatchChangeSkinIntent(
+        val accountUuid: String,
+        val isMicrosoftAccount: Boolean,
+        val intent: ChangeSkinIntent
+    ) : AccountManageIntent()
+    data class ClearChangeSkinState(val accountUuid: String) : AccountManageIntent()
 
 
     /** 执行微软登录流程 */
@@ -227,6 +237,7 @@ class AccountManageViewModel @Inject constructor(
     private val _serverOp = MutableStateFlow<ServerOperation>(ServerOperation.None)
     private val _accountOp = MutableStateFlow<AccountOperation>(AccountOperation.None)
     private val _accountSkinOpMap = MutableStateFlow<Map<String, AccountSkinOperation>>(emptyMap())
+    private val _changeSkinUiStateMap = MutableStateFlow<Map<String, ChangeSkinUiState>>(emptyMap())
 
     private val _effect = Channel<AccountManageEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
@@ -250,13 +261,25 @@ class AccountManageViewModel @Inject constructor(
             MicrosoftOps(msLoginOp, msCapes)
         },
         kotlinxCombine(
-            _localLoginOp,
-            _otherLoginOp,
-            _serverOp,
-            _accountOp,
-            _accountSkinOpMap
-        ) { localLoginOp, otherLoginOp, serverOp, accountOp, accountSkinOpMap ->
-            OtherOps(localLoginOp, otherLoginOp, serverOp, accountOp, accountSkinOpMap)
+            kotlinxCombine(
+                _localLoginOp,
+                _otherLoginOp,
+                _serverOp,
+                _accountOp,
+                _accountSkinOpMap
+            ) { localLoginOp, otherLoginOp, serverOp, accountOp, accountSkinOpMap ->
+                OtherOpsCore(localLoginOp, otherLoginOp, serverOp, accountOp, accountSkinOpMap)
+            },
+            _changeSkinUiStateMap
+        ) { otherOps, changeSkinUiStateMap ->
+            OtherOps(
+                localLoginOp = otherOps.localLoginOp,
+                otherLoginOp = otherOps.otherLoginOp,
+                serverOp = otherOps.serverOp,
+                accountOp = otherOps.accountOp,
+                accountSkinOpMap = otherOps.accountSkinOpMap,
+                changeSkinUiStateMap = changeSkinUiStateMap
+            )
         }
     ) { (accounts, currentAccount, authServers), msOps, otherOps ->
         AccountManageUiState(
@@ -269,7 +292,8 @@ class AccountManageViewModel @Inject constructor(
             otherLoginOperation = otherOps.otherLoginOp,
             serverOperation = otherOps.serverOp,
             accountOperation = otherOps.accountOp,
-            accountSkinOperationMap = otherOps.accountSkinOpMap
+            accountSkinOperationMap = otherOps.accountSkinOpMap,
+            changeSkinUiStateMap = otherOps.changeSkinUiStateMap
         )
     }.stateIn(
         scope = viewModelScope,
@@ -283,6 +307,15 @@ class AccountManageViewModel @Inject constructor(
     )
 
     private data class OtherOps(
+        val localLoginOp: LocalLoginOperation,
+        val otherLoginOp: OtherLoginOperation,
+        val serverOp: ServerOperation,
+        val accountOp: AccountOperation,
+        val accountSkinOpMap: Map<String, AccountSkinOperation>,
+        val changeSkinUiStateMap: Map<String, ChangeSkinUiState>
+    )
+
+    private data class OtherOpsCore(
         val localLoginOp: LocalLoginOperation,
         val otherLoginOp: OtherLoginOperation,
         val serverOp: ServerOperation,
@@ -304,6 +337,22 @@ class AccountManageViewModel @Inject constructor(
             is AccountManageIntent.UpdateAccountOp -> _accountOp.value = intent.operation
             is AccountManageIntent.UpdateAccountSkinOp -> {
                 _accountSkinOpMap.update { it + (intent.accountUuid to intent.operation) }
+                if (intent.operation is AccountSkinOperation.None) {
+                    _changeSkinUiStateMap.update { it - intent.accountUuid }
+                }
+            }
+            is AccountManageIntent.DispatchChangeSkinIntent -> {
+                _changeSkinUiStateMap.update { stateMap ->
+                    val current = stateMap[intent.accountUuid] ?: ChangeSkinUiState()
+                    stateMap + (intent.accountUuid to reduceChangeSkinState(
+                        state = current,
+                        intent = intent.intent,
+                        isMicrosoftAccount = intent.isMicrosoftAccount
+                    ))
+                }
+            }
+            is AccountManageIntent.ClearChangeSkinState -> {
+                _changeSkinUiStateMap.update { it - intent.accountUuid }
             }
 
             is AccountManageIntent.PerformMicrosoftLogin -> performMicrosoftLogin(intent)

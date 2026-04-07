@@ -83,6 +83,7 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.AccountItem
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountSkinOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.ChangeSkinDialog
+import com.movtery.zalithlauncher.ui.screens.content.elements.ChangeSkinUiState
 import com.movtery.zalithlauncher.ui.screens.content.elements.LocalLoginDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.LocalLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.LoginItem
@@ -237,6 +238,7 @@ private fun AccountManageContent(
             currentAccount = uiState.currentAccount,
             accountOperation = uiState.accountOperation,
             accountSkinOperationMap = uiState.accountSkinOperationMap,
+            changeSkinUiStateMap = uiState.changeSkinUiStateMap,
             microsoftCapes = uiState.microsoftCapes,
             actions = actions
         )
@@ -606,6 +608,7 @@ private fun AccountsLayout(
     currentAccount: Account?,
     accountOperation: AccountOperation,
     accountSkinOperationMap: Map<String, AccountSkinOperation>,
+    changeSkinUiStateMap: Map<String, ChangeSkinUiState>,
     microsoftCapes: Map<String, List<PlayerProfile.Cape>>,
     actions: AccountActions
 ) {
@@ -632,6 +635,8 @@ private fun AccountsLayout(
                     AccountSkinOperation(
                         account = account,
                         accountSkinOperation = skinOp,
+                        changeSkinUiState = changeSkinUiStateMap[account.uniqueUUID]
+                            ?: ChangeSkinUiState(),
                         availableCapes = microsoftCapes[account.uniqueUUID] ?: emptyList(),
                         updateOperation = {
                             actions.onIntent(
@@ -708,6 +713,7 @@ private fun AccountsLayout(
 private fun AccountSkinOperation(
     account: Account,
     accountSkinOperation: AccountSkinOperation,
+    changeSkinUiState: ChangeSkinUiState,
     availableCapes: List<PlayerProfile.Cape>,
     updateOperation: (AccountSkinOperation) -> Unit,
     actions: AccountActions
@@ -717,8 +723,21 @@ private fun AccountSkinOperation(
         is AccountSkinOperation.ChangeSkin -> {
             ChangeSkinDialog(
                 account = account,
+                uiState = changeSkinUiState,
                 availableCapes = availableCapes,
-                onDismissRequest = { updateOperation(AccountSkinOperation.None) },
+                onIntent = { intent ->
+                    actions.onIntent(
+                        AccountManageIntent.DispatchChangeSkinIntent(
+                            accountUuid = account.uniqueUUID,
+                            isMicrosoftAccount = account.isMicrosoftAccount(),
+                            intent = intent
+                        )
+                    )
+                },
+                onDismissRequest = {
+                    updateOperation(AccountSkinOperation.None)
+                    actions.onIntent(AccountManageIntent.ClearChangeSkinState(account.uniqueUUID))
+                },
                 onResetSkin = {
                     if (account.isLocalAccount()) {
                         actions.onIntent(AccountManageIntent.ResetSkin(account))
