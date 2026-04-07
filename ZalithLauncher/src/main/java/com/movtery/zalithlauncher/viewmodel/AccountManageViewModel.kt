@@ -378,9 +378,9 @@ class AccountManageViewModel @Inject constructor(
                     }
                 }
                 is ChangeSkinDialogIntent.SelectSkinFile -> {
-                    val fileName = context.getFileName(uri) ?: UUID.randomUUID().toString().replace("-", "")
+                    val fileName = context.getFileName(intent.skinUri) ?: UUID.randomUUID().toString().replace("-", "")
                     val cacheFile = File(PathManager.DIR_IMAGE_CACHE, fileName)
-                    context.copyLocalFile(uri, cacheFile)
+                    context.copyLocalFile(intent.skinUri, cacheFile)
                     if (validateSkinFile(cacheFile)) {
                         state.copy(
                             pendingSkinData = ChangeSkin.ChangeSkinData(intent.skinUri),
