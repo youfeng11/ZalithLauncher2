@@ -1075,6 +1075,75 @@ private sealed interface ChangeSkin {
     data object ResetSkin : ChangeSkin
 }
 
+private data class ChangeSkinUiState(
+    val pendingSkinData: ChangeSkin? = null,
+    val pendingCape: PlayerProfile.Cape? = null,
+    val showModelSelector: Boolean = false,
+    val showCapeSelector: Boolean = false,
+    val isFetchingCapes: Boolean = false,
+    val currentCapeToLoad: PlayerProfile.Cape = EmptyCape,
+    val currentUsingCape: PlayerProfile.Cape = EmptyCape
+)
+
+private sealed interface ChangeSkinIntent {
+    data class PickSkin(val skinUri: Uri) : ChangeSkinIntent
+    data object ResetSkin : ChangeSkinIntent
+    data class SelectSkinModel(val model: SkinModelType) : ChangeSkinIntent
+    data object DismissModelSelector : ChangeSkinIntent
+    data object OpenCapeSelector : ChangeSkinIntent
+    data object CloseCapeSelector : ChangeSkinIntent
+    data class SelectCape(val cape: PlayerProfile.Cape) : ChangeSkinIntent
+    data object StartFetchCapes : ChangeSkinIntent
+    data class CapesLoaded(val capes: List<PlayerProfile.Cape>) : ChangeSkinIntent
+}
+
+private fun reduceChangeSkinState(
+    state: ChangeSkinUiState,
+    intent: ChangeSkinIntent,
+    isMicrosoftAccount: Boolean
+): ChangeSkinUiState = when (intent) {
+    is ChangeSkinIntent.PickSkin -> state.copy(
+        pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = intent.skinUri),
+        showModelSelector = true
+    )
+    ChangeSkinIntent.ResetSkin -> state.copy(
+        pendingSkinData = ChangeSkin.ResetSkin
+    )
+    is ChangeSkinIntent.SelectSkinModel -> {
+        val data = state.pendingSkinData as? ChangeSkin.ChangeSkinData
+        state.copy(
+            pendingSkinData = data?.copy(skinModel = intent.model),
+            showModelSelector = false
+        )
+    }
+    ChangeSkinIntent.DismissModelSelector -> state.copy(
+        showModelSelector = false,
+        pendingSkinData = null
+    )
+    ChangeSkinIntent.OpenCapeSelector -> state.copy(showCapeSelector = true)
+    ChangeSkinIntent.CloseCapeSelector -> state.copy(showCapeSelector = false)
+    is ChangeSkinIntent.SelectCape -> state.copy(
+        pendingCape = intent.cape.takeIf { it != state.currentUsingCape },
+        currentCapeToLoad = intent.cape,
+        showCapeSelector = false
+    )
+    ChangeSkinIntent.StartFetchCapes -> {
+        if (!isMicrosoftAccount) state else state.copy(isFetchingCapes = true)
+    }
+    is ChangeSkinIntent.CapesLoaded -> {
+        if (!isMicrosoftAccount || intent.capes.isEmpty()) {
+            state
+        } else {
+            val currentUsingCape = intent.capes.findUsing() ?: EmptyCape
+            state.copy(
+                isFetchingCapes = false,
+                currentUsingCape = currentUsingCape,
+                currentCapeToLoad = currentUsingCape
+            )
+        }
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun ChangeSkinDialog(
@@ -1088,28 +1157,24 @@ fun ChangeSkinDialog(
 ) {
     val context = LocalContext.current
     val playerSkin = remember { PlayerSkin(context) }
+    val isMicrosoftAccount = account.isMicrosoftAccount()
+    val isLocalAccount = account.isLocalAccount()
 
-    // Temporary states to hold unapplied changes
-    var pendingSkinData by remember { mutableStateOf<ChangeSkin?>(null) }
-    var pendingCape by remember { mutableStateOf<PlayerProfile.Cape?>(null) }
-
-    var showModelSelector by remember { mutableStateOf(false) }
-    var showCapeSelector by remember { mutableStateOf(false) }
-
-    var isFetchingCapes by remember { mutableStateOf(false) }
-
-    var currentCapeToLoad by remember { mutableStateOf(EmptyCape) }
-    var currentUsingCape by remember { mutableStateOf(EmptyCape) }
+    var uiState by remember { mutableStateOf(ChangeSkinUiState()) }
+    fun dispatch(intent: ChangeSkinIntent) {
+        uiState = reduceChangeSkinState(
+            state = uiState,
+            intent = intent,
+            isMicrosoftAccount = isMicrosoftAccount
+        )
+    }
 
     LaunchedEffect(availableCapes) {
-        if (account.isMicrosoftAccount()) {
+        if (isMicrosoftAccount) {
             if (availableCapes.isNotEmpty()) {
-                isFetchingCapes = false
-                val currentUsingCape0 = availableCapes.findUsing() ?: EmptyCape
-                currentUsingCape = currentUsingCape0
-                currentCapeToLoad = currentUsingCape0
+                dispatch(ChangeSkinIntent.CapesLoaded(availableCapes))
             } else {
-                isFetchingCapes = true
+                dispatch(ChangeSkinIntent.StartFetchCapes)
                 onFetchCapes()
             }
         }
@@ -1118,8 +1183,7 @@ fun ChangeSkinDialog(
     val skinPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let {
-                pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = it)
-                showModelSelector = true
+                dispatch(ChangeSkinIntent.PickSkin(it))
             }
         }
 
@@ -1195,7 +1259,7 @@ fun ChangeSkinDialog(
                                     )
                                 },
                                 update = { webView ->
-                                    val skinData = pendingSkinData
+                                    val skinData = uiState.pendingSkinData
 
                                     if (pageFinished) {
                                         when (skinData) {
@@ -1222,8 +1286,8 @@ fun ChangeSkinDialog(
                                             is ChangeSkin.ResetSkin -> resetSkin()
                                             else -> loadSkin()
                                         }
-                                        if (account.isMicrosoftAccount()) {
-                                            playerSkin.loadCape(currentCapeToLoad)
+                                        if (isMicrosoftAccount) {
+                                            playerSkin.loadCape(uiState.currentCapeToLoad)
                                         }
                                     }
                                 },
@@ -1255,16 +1319,16 @@ fun ChangeSkinDialog(
                             )
 
                             //仅微软账号支持更改披风
-                            if (account.isMicrosoftAccount()) {
+                            if (isMicrosoftAccount) {
                                 InfoLayoutTextItem(
                                     modifier = Modifier.fillMaxWidth(),
-                                    title = if (isFetchingCapes) {
+                                    title = if (uiState.isFetchingCapes) {
                                         stringResource(R.string.account_change_cape_fetch_all)
                                     } else {
                                         stringResource(R.string.account_change_cape)
                                     },
                                     icon = {
-                                        if (isFetchingCapes) {
+                                        if (uiState.isFetchingCapes) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier.size(22.dp),
                                                 strokeWidth = 2.dp
@@ -1278,14 +1342,14 @@ fun ChangeSkinDialog(
                                         }
                                     },
                                     onClick = {
-                                        showCapeSelector = true
+                                        dispatch(ChangeSkinIntent.OpenCapeSelector)
                                     },
-                                    enabled = !isFetchingCapes
+                                    enabled = !uiState.isFetchingCapes
                                 )
                             }
 
                             //离线账号重置皮肤
-                            if (account.isLocalAccount() && account.hasSkinFile && pendingSkinData != ChangeSkin.ResetSkin) {
+                            if (isLocalAccount && account.hasSkinFile && uiState.pendingSkinData != ChangeSkin.ResetSkin) {
                                 InfoLayoutTextItem(
                                     modifier = Modifier.fillMaxWidth(),
                                     title = stringResource(R.string.generic_reset),
@@ -1297,7 +1361,7 @@ fun ChangeSkinDialog(
                                         )
                                     },
                                     onClick = {
-                                        pendingSkinData = ChangeSkin.ResetSkin
+                                        dispatch(ChangeSkinIntent.ResetSkin)
                                     }
                                 )
                             }
@@ -1317,23 +1381,23 @@ fun ChangeSkinDialog(
 
                         Button(
                             modifier = Modifier.weight(1f),
-                            enabled = pendingSkinData != null || pendingCape != null,
+                            enabled = uiState.pendingSkinData != null || uiState.pendingCape != null,
                             onClick = {
                                 //提早拿到委托的值，否则吃不到Kotlin的智能转换
-                                val skinData = pendingSkinData
-                                val cape = pendingCape
+                                val skinData = uiState.pendingSkinData
+                                val cape = uiState.pendingCape
 
                                 when (skinData) {
                                     is ChangeSkin.ChangeSkinData -> {
                                         onChangeSkin(skinData.skinUri, skinData.skinModel)
                                     }
                                     is ChangeSkin.ResetSkin -> {
-                                        if (account.isLocalAccount()) onResetSkin()
+                                        if (isLocalAccount) onResetSkin()
                                     }
                                     else -> {}
                                 }
 
-                                if (account.isMicrosoftAccount()) {
+                                if (isMicrosoftAccount) {
                                     //检查并更改披风
                                     if (cape != null) {
                                         val name = if (cape == EmptyCape) {
@@ -1358,40 +1422,32 @@ fun ChangeSkinDialog(
         }
     }
 
-    if (showModelSelector) {
+    if (uiState.showModelSelector) {
         SelectSkinModelDialog(
             onDismissRequest = {
-                showModelSelector = false
+                dispatch(ChangeSkinIntent.DismissModelSelector)
                 //关闭时，一并重置已选择的皮肤
-                pendingSkinData = null
                 loadSkin()
             },
             onSelected = { model ->
-                val data = pendingSkinData as? ChangeSkin.ChangeSkinData
-                pendingSkinData = data?.copy(
-                    skinModel = model
-                )
-                showModelSelector = false
+                dispatch(ChangeSkinIntent.SelectSkinModel(model))
             }
         )
     }
 
-    if (showCapeSelector) {
+    if (uiState.showCapeSelector) {
         SelectCapeDialog(
             capes = buildList {
                 add(EmptyCape)
                 addAll(availableCapes)
             },
             //若当前未更改披风，则使用使用中的披风
-            selectedCape = pendingCape ?: currentUsingCape,
+            selectedCape = uiState.pendingCape ?: uiState.currentUsingCape,
             onSelected = { cape, _ ->
-                //检查是否已经为正在使用的披风
-                pendingCape = if (cape != currentUsingCape) cape else null
-                currentCapeToLoad = cape
-                showCapeSelector = false
+                dispatch(ChangeSkinIntent.SelectCape(cape))
             },
             onDismiss = {
-                showCapeSelector = false
+                dispatch(ChangeSkinIntent.CloseCapeSelector)
             }
         )
     }
