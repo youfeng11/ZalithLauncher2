@@ -453,6 +453,7 @@
     <string name="account_change_skin">更换皮肤</string>
     <string name="account_change_skin_select_model_title">选择皮肤模型</string>
     <string name="account_change_skin_select_model_message">该皮肤是 Steve 模型（粗臂）还是 Alex 模型（细臂）？</string>
+    <string name="account_change_skin_recommended">%s（推荐）</string>
     <string name="account_change_skin_model_steve">Steve 模型</string>
     <string name="account_change_skin_model_alex">Alex 模型</string>
     <string name="account_change_skin_failed_to_import">无法缓存目标文件</string>

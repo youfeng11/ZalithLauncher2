@@ -405,6 +405,7 @@
     <string name="account_change_skin">更換皮膚</string>
     <string name="account_change_skin_select_model_title">選擇皮膚模型</string>
     <string name="account_change_skin_select_model_message">此皮膚是 Steve 模型（粗手臂）還是 Alex 模型（細手臂）？</string>
+    <string name="account_change_skin_recommended">%s（推薦）</string>
     <string name="account_change_skin_model_steve">Steve 模型</string>
     <string name="account_change_skin_model_alex">Alex 模型</string>
     <string name="account_change_skin_failed_to_import">無法快取目標檔案</string>

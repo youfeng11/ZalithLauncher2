@@ -454,6 +454,7 @@
     <string name="account_change_skin">Change Skin</string>
     <string name="account_change_skin_select_model_title">Select Skin Model</string>
     <string name="account_change_skin_select_model_message">Is this skin Steve (wide arms) or Alex (slim arms)?</string>
+    <string name="account_change_skin_recommended">%s (Recommended)</string>
     <string name="account_change_skin_model_steve">Steve Model</string>
     <string name="account_change_skin_model_alex">Alex Model</string>
     <string name="account_change_skin_failed_to_import">Failed to cache the target file</string>

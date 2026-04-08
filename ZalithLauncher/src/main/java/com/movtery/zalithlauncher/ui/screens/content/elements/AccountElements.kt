@@ -1159,18 +1159,20 @@ fun SelectSkinModelDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val steveText = buildString {
-                            append(stringResource(R.string.account_change_skin_model_steve))
-                            if (recommendedModel == SkinModelType.STEVE) {
-                                append("（推荐）")
-                            }
-                        }
-                        val alexText = buildString {
-                            append(stringResource(R.string.account_change_skin_model_alex))
-                            if (recommendedModel == SkinModelType.ALEX) {
-                                append("（推荐）")
-                            }
-                        }
+                        val steveText = if (recommendedModel == SkinModelType.STEVE) {
+                            stringResource(
+                                R.string.account_change_skin_recommended,
+                                stringResource(R.string.account_change_skin_model_steve)
+                            )
+                        } else stringResource(R.string.account_change_skin_model_steve)
+
+                        val alexText = if (recommendedModel == SkinModelType.ALEX) {
+                            stringResource(
+                                R.string.account_change_skin_recommended,
+                                stringResource(R.string.account_change_skin_model_alex)
+                            )
+                        } else stringResource(R.string.account_change_skin_model_alex)
+
                         Button(
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
