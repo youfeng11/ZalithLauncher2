@@ -45,6 +45,7 @@ import com.movtery.zalithlauncher.game.account.microsoftLogin
 import com.movtery.zalithlauncher.game.account.refreshMicrosoft
 import com.movtery.zalithlauncher.game.account.wardrobe.SkinModelType
 import com.movtery.zalithlauncher.game.account.wardrobe.getLocalUUIDWithSkinModel
+import com.movtery.zalithlauncher.game.account.wardrobe.isSlimModel
 import com.movtery.zalithlauncher.game.account.wardrobe.validateSkinFile
 import com.movtery.zalithlauncher.game.account.yggdrasil.PlayerProfile
 import com.movtery.zalithlauncher.game.account.yggdrasil.cacheAllCapes
@@ -380,12 +381,20 @@ class AccountManageViewModel @Inject constructor(
                     )
                     return@launch
                 }
+                val recommendedModel = if (cacheFile.isSlimModel()) {
+                    SkinModelType.ALEX
+                } else {
+                    SkinModelType.STEVE
+                }
 
                 _accountSkinDialogStateMap.update { stateMap ->
                     val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
                     stateMap + (
                         intent.accountUuid to oldState.copy(
-                            pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = intent.uri),
+                            pendingSkinData = ChangeSkin.ChangeSkinData(
+                                skinUri = intent.uri,
+                                skinModel = recommendedModel
+                            ),
                             showSkinModelSelector = true
                         )
                     )

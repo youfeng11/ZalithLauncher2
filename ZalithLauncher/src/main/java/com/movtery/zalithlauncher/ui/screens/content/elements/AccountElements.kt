@@ -1113,6 +1113,7 @@ fun OtherServerLoginDialog(
 
 @Composable
 fun SelectSkinModelDialog(
+    recommendedModel: SkinModelType? = null,
     onDismissRequest: () -> Unit = {},
     onSelected: (SkinModelType) -> Unit = {}
 ) {
@@ -1158,13 +1159,25 @@ fun SelectSkinModelDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        val steveText = buildString {
+                            append(stringResource(R.string.account_change_skin_model_steve))
+                            if (recommendedModel == SkinModelType.STEVE) {
+                                append("（推荐）")
+                            }
+                        }
+                        val alexText = buildString {
+                            append(stringResource(R.string.account_change_skin_model_alex))
+                            if (recommendedModel == SkinModelType.ALEX) {
+                                append("（推荐）")
+                            }
+                        }
                         Button(
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {
                                 onSelected(SkinModelType.STEVE)
                             }
                         ) {
-                            MarqueeText(text = stringResource(R.string.account_change_skin_model_steve))
+                            MarqueeText(text = steveText)
                         }
                         Button(
                             modifier = Modifier.fillMaxWidth(),
@@ -1172,7 +1185,7 @@ fun SelectSkinModelDialog(
                                 onSelected(SkinModelType.ALEX)
                             }
                         ) {
-                            MarqueeText(text = stringResource(R.string.account_change_skin_model_alex))
+                            MarqueeText(text = alexText)
                         }
                         FilledTonalButton(
                             modifier = Modifier.fillMaxWidth(),
@@ -1477,7 +1490,9 @@ fun ChangeSkinDialog(
     }
 
     if (showModelSelector) {
+        val recommendedModel = (pendingSkinData as? ChangeSkin.ChangeSkinData)?.skinModel
         SelectSkinModelDialog(
+            recommendedModel = recommendedModel,
             onDismissRequest = {
                 //关闭时，一并重置已选择的皮肤
                 onPendingSkinDataChange(null)
