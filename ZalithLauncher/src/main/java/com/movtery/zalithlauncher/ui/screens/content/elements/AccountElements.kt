@@ -1210,6 +1210,7 @@ fun ChangeSkinDialog(
     availableCapes: List<PlayerProfile.Cape> = emptyList(),
     pendingSkinData: ChangeSkin?,
     showModelSelector: Boolean,
+    onSkinPicked: (Uri) -> Unit = {},
     onPendingSkinDataChange: (ChangeSkin?) -> Unit = {},
     onShowModelSelectorChange: (Boolean) -> Unit = {},
     onDismissRequest: () -> Unit = {},
@@ -1245,10 +1246,7 @@ fun ChangeSkinDialog(
 
     val skinPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-            uri?.let {
-                onPendingSkinDataChange(ChangeSkin.ChangeSkinData(skinUri = it))
-                onShowModelSelectorChange(true)
-            }
+            uri?.let(onSkinPicked)
         }
 
     /**

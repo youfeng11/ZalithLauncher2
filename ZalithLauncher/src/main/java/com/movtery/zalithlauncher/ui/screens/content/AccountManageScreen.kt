@@ -767,6 +767,14 @@ private fun AccountSkinOperation(
                 availableCapes = availableCapes,
                 pendingSkinData = skinDialogState.pendingSkinData,
                 showModelSelector = skinDialogState.showSkinModelSelector,
+                onSkinPicked = { uri ->
+                    actions.onIntent(
+                        AccountManageIntent.OnSkinPicked(
+                            account.uniqueUUID,
+                            uri
+                        )
+                    )
+                },
                 onPendingSkinDataChange = { pendingSkinData ->
                     actions.onIntent(
                         AccountManageIntent.UpdatePendingSkinData(

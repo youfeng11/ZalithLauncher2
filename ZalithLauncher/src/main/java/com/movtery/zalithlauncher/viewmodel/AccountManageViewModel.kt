@@ -112,6 +112,7 @@ sealed interface AccountManageIntent {
         AccountManageIntent
     data class UpdateShowSkinModelSelector(val accountUuid: String, val show: Boolean) :
         AccountManageIntent
+    data class OnSkinPicked(val accountUuid: String, val uri: Uri) : AccountManageIntent
     data class ResetAccountSkinDialogState(val accountUuid: String) : AccountManageIntent
 
 
@@ -331,6 +332,17 @@ class AccountManageViewModel @Inject constructor(
                 _accountSkinDialogStateMap.update { stateMap ->
                     val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
                     stateMap + (intent.accountUuid to oldState.copy(showSkinModelSelector = intent.show))
+                }
+            }
+            is AccountManageIntent.OnSkinPicked -> {
+                _accountSkinDialogStateMap.update { stateMap ->
+                    val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
+                    stateMap + (
+                        intent.accountUuid to oldState.copy(
+                            pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = intent.uri),
+                            showSkinModelSelector = true
+                        )
+                    )
                 }
             }
             is AccountManageIntent.ResetAccountSkinDialogState -> {
