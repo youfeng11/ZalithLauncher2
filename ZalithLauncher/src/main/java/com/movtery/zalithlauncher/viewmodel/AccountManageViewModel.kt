@@ -252,17 +252,17 @@ class AccountManageViewModel @Inject constructor(
         AccountsManager.currentAccountFlow,
         AccountsManager.authServersFlow,
         _accountCapeOpMap,
-        _accountSkinOpMap,
-        _accountSkinDialogStateMap
-    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap, accountSkinDialogStateMap ->
+        _accountSkinOpMap
+    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap ->
         ProfileUiState(
             accounts = accountsFlow,
             currentAccount = currentAccountFlow,
             authServers = authServersFlow,
             accountCapeOpMap = accountCapeOpMap,
-            accountSkinOpMap = accountSkinOpMap,
-            accountSkinDialogStateMap = accountSkinDialogStateMap
+            accountSkinOpMap = accountSkinOpMap
         )
+    }.kotlinxCombine(_accountSkinDialogStateMap) { baseState, accountSkinDialogStateMap ->
+        baseState.copy(accountSkinDialogStateMap = accountSkinDialogStateMap)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
