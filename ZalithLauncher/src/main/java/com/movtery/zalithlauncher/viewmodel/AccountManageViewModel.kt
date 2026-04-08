@@ -55,6 +55,7 @@ import com.movtery.zalithlauncher.game.account.yggdrasil.uploadSkin
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountSkinOperation
+import com.movtery.zalithlauncher.ui.screens.content.elements.ChangeSkin
 import com.movtery.zalithlauncher.ui.screens.content.elements.LocalLoginOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.LoginMenuOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.MicrosoftLoginOperation
@@ -106,6 +107,11 @@ sealed interface AccountManageIntent {
     data class UpdateAccountOp(val operation: AccountOperation) : AccountManageIntent
     data class UpdateAccountSkinOp(val accountUuid: String, val operation: AccountSkinOperation) :
         AccountManageIntent
+    data class UpdatePendingSkinData(val accountUuid: String, val pendingSkinData: ChangeSkin?) :
+        AccountManageIntent
+    data class UpdateShowSkinModelSelector(val accountUuid: String, val show: Boolean) :
+        AccountManageIntent
+    data class ResetAccountSkinDialogState(val accountUuid: String) : AccountManageIntent
 
 
     /** 执行微软登录流程 */
@@ -204,6 +210,8 @@ class AccountManageViewModel @Inject constructor(
     private val _accountOp = MutableStateFlow<AccountOperation>(AccountOperation.None)
     private val _accountCapeOpMap = MutableStateFlow<Map<String, List<PlayerProfile.Cape>>>(emptyMap())
     private val _accountSkinOpMap = MutableStateFlow<Map<String, AccountSkinOperation>>(emptyMap())
+    private val _accountSkinDialogStateMap =
+        MutableStateFlow<Map<String, AccountSkinDialogState>>(emptyMap())
 
     private val _effect = Channel<AccountManageEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
@@ -244,14 +252,16 @@ class AccountManageViewModel @Inject constructor(
         AccountsManager.currentAccountFlow,
         AccountsManager.authServersFlow,
         _accountCapeOpMap,
-        _accountSkinOpMap
-    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap ->
+        _accountSkinOpMap,
+        _accountSkinDialogStateMap
+    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap, accountSkinDialogStateMap ->
         ProfileUiState(
             accounts = accountsFlow,
             currentAccount = currentAccountFlow,
             authServers = authServersFlow,
             accountCapeOpMap = accountCapeOpMap,
-            accountSkinOpMap = accountSkinOpMap
+            accountSkinOpMap = accountSkinOpMap,
+            accountSkinDialogStateMap = accountSkinDialogStateMap
         )
     }.stateIn(
         scope = viewModelScope,
@@ -264,7 +274,13 @@ class AccountManageViewModel @Inject constructor(
         val currentAccount: Account? = null,
         val authServers: List<AuthServer> = emptyList(),
         val accountCapeOpMap: Map<String, List<PlayerProfile.Cape>> = emptyMap(),
-        val accountSkinOpMap: Map<String, AccountSkinOperation> = emptyMap()
+        val accountSkinOpMap: Map<String, AccountSkinOperation> = emptyMap(),
+        val accountSkinDialogStateMap: Map<String, AccountSkinDialogState> = emptyMap()
+    )
+
+    data class AccountSkinDialogState(
+        val pendingSkinData: ChangeSkin? = null,
+        val showSkinModelSelector: Boolean = false
     )
 
     /**
@@ -303,6 +319,21 @@ class AccountManageViewModel @Inject constructor(
             is AccountManageIntent.UpdateAccountOp -> _accountOp.value = intent.operation
             is AccountManageIntent.UpdateAccountSkinOp -> {
                 _accountSkinOpMap.update { it + (intent.accountUuid to intent.operation) }
+            }
+            is AccountManageIntent.UpdatePendingSkinData -> {
+                _accountSkinDialogStateMap.update { stateMap ->
+                    val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
+                    stateMap + (intent.accountUuid to oldState.copy(pendingSkinData = intent.pendingSkinData))
+                }
+            }
+            is AccountManageIntent.UpdateShowSkinModelSelector -> {
+                _accountSkinDialogStateMap.update { stateMap ->
+                    val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
+                    stateMap + (intent.accountUuid to oldState.copy(showSkinModelSelector = intent.show))
+                }
+            }
+            is AccountManageIntent.ResetAccountSkinDialogState -> {
+                _accountSkinDialogStateMap.update { it + (intent.accountUuid to AccountSkinDialogState()) }
             }
 
             is AccountManageIntent.PerformMicrosoftLogin -> performMicrosoftLogin(intent)

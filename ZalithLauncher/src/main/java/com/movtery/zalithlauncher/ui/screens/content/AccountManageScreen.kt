@@ -231,6 +231,7 @@ private fun AccountManageContent(
             currentAccount = profileUiState.currentAccount,
             accountOperation = operationUiState.accountOp,
             accountSkins = profileUiState.accountSkinOpMap,
+            accountSkinDialogStates = profileUiState.accountSkinDialogStateMap,
             accountCapes = profileUiState.accountCapeOpMap,
             actions = actions
         )
@@ -650,6 +651,7 @@ private fun AccountsLayout(
     currentAccount: Account?,
     accountOperation: AccountOperation,
     accountSkins: Map<String, AccountSkinOperation>,
+    accountSkinDialogStates: Map<String, AccountManageViewModel.AccountSkinDialogState>,
     accountCapes: Map<String, List<PlayerProfile.Cape>>,
     actions: AccountActions
 ) {
@@ -675,6 +677,8 @@ private fun AccountsLayout(
                     AccountSkinOperation(
                         account = account,
                         accountSkinOperation = skinOp,
+                        skinDialogState = accountSkinDialogStates[account.uniqueUUID]
+                            ?: AccountManageViewModel.AccountSkinDialogState(),
                         availableCapes = accountCapes[account.uniqueUUID] ?: emptyList(),
                         updateOperation = {
                             actions.onIntent(
@@ -750,6 +754,7 @@ private fun AccountsLayout(
 private fun AccountSkinOperation(
     account: Account,
     accountSkinOperation: AccountSkinOperation,
+    skinDialogState: AccountManageViewModel.AccountSkinDialogState,
     availableCapes: List<PlayerProfile.Cape>,
     updateOperation: (AccountSkinOperation) -> Unit,
     actions: AccountActions
@@ -760,7 +765,25 @@ private fun AccountSkinOperation(
             ChangeSkinDialog(
                 account = account,
                 availableCapes = availableCapes,
-                onDismissRequest = { updateOperation(AccountSkinOperation.None) },
+                pendingSkinData = skinDialogState.pendingSkinData,
+                showModelSelector = skinDialogState.showSkinModelSelector,
+                onPendingSkinDataChange = { pendingSkinData ->
+                    actions.onIntent(
+                        AccountManageIntent.UpdatePendingSkinData(
+                            account.uniqueUUID,
+                            pendingSkinData
+                        )
+                    )
+                },
+                onShowModelSelectorChange = { show ->
+                    actions.onIntent(
+                        AccountManageIntent.UpdateShowSkinModelSelector(account.uniqueUUID, show)
+                    )
+                },
+                onDismissRequest = {
+                    actions.onIntent(AccountManageIntent.ResetAccountSkinDialogState(account.uniqueUUID))
+                    updateOperation(AccountSkinOperation.None)
+                },
                 onResetSkin = {
                     if (account.isLocalAccount()) {
                         actions.onIntent(AccountManageIntent.ResetSkin(account))

@@ -1191,7 +1191,7 @@ fun SelectSkinModelDialog(
  * 更改皮肤流程需要让 uri 与皮肤模型深度绑定
  * 重置或者确认更改时，能更方便的处理数据
  */
-private sealed interface ChangeSkin {
+sealed interface ChangeSkin {
     data class ChangeSkinData(
         val skinUri: Uri,
         val skinModel: SkinModelType = SkinModelType.STEVE
@@ -1208,6 +1208,10 @@ private sealed interface ChangeSkin {
 fun ChangeSkinDialog(
     account: Account,
     availableCapes: List<PlayerProfile.Cape> = emptyList(),
+    pendingSkinData: ChangeSkin?,
+    showModelSelector: Boolean,
+    onPendingSkinDataChange: (ChangeSkin?) -> Unit = {},
+    onShowModelSelectorChange: (Boolean) -> Unit = {},
     onDismissRequest: () -> Unit = {},
     onResetSkin: () -> Unit = {},
     onChangeSkin: (Uri, SkinModelType) -> Unit = { _, _ -> },
@@ -1217,11 +1221,7 @@ fun ChangeSkinDialog(
     val context = LocalContext.current
     val playerSkin = remember { PlayerSkin(context) }
 
-    // Temporary states to hold unapplied changes
-    var pendingSkinData by remember { mutableStateOf<ChangeSkin?>(null) }
     var pendingCape by remember { mutableStateOf<PlayerProfile.Cape?>(null) }
-
-    var showModelSelector by remember { mutableStateOf(false) }
     var showCapeSelector by remember { mutableStateOf(false) }
 
     var isFetchingCapes by remember { mutableStateOf(false) }
@@ -1246,8 +1246,8 @@ fun ChangeSkinDialog(
     val skinPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let {
-                pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = it)
-                showModelSelector = true
+                onPendingSkinDataChange(ChangeSkin.ChangeSkinData(skinUri = it))
+                onShowModelSelectorChange(true)
             }
         }
 
@@ -1417,7 +1417,7 @@ fun ChangeSkinDialog(
                                         )
                                     },
                                     onClick = {
-                                        pendingSkinData = ChangeSkin.ResetSkin
+                                        onPendingSkinDataChange(ChangeSkin.ResetSkin)
                                     }
                                 )
                             }
@@ -1481,17 +1481,17 @@ fun ChangeSkinDialog(
     if (showModelSelector) {
         SelectSkinModelDialog(
             onDismissRequest = {
-                showModelSelector = false
                 //关闭时，一并重置已选择的皮肤
-                pendingSkinData = null
+                onPendingSkinDataChange(null)
                 loadSkin()
+                onShowModelSelectorChange(false)
             },
             onSelected = { model ->
                 val data = pendingSkinData as? ChangeSkin.ChangeSkinData
-                pendingSkinData = data?.copy(
+                onPendingSkinDataChange(data?.copy(
                     skinModel = model
-                )
-                showModelSelector = false
+                ))
+                onShowModelSelectorChange(false)
             }
         )
     }
