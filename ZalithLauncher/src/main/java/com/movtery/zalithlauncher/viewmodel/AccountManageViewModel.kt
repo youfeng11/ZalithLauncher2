@@ -334,17 +334,7 @@ class AccountManageViewModel @Inject constructor(
                     stateMap + (intent.accountUuid to oldState.copy(showSkinModelSelector = intent.show))
                 }
             }
-            is AccountManageIntent.OnSkinPicked -> {
-                _accountSkinDialogStateMap.update { stateMap ->
-                    val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
-                    stateMap + (
-                        intent.accountUuid to oldState.copy(
-                            pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = intent.uri),
-                            showSkinModelSelector = true
-                        )
-                    )
-                }
-            }
+            is AccountManageIntent.OnSkinPicked -> onSkinPicked(intent)
             is AccountManageIntent.ResetAccountSkinDialogState -> {
                 _accountSkinDialogStateMap.update { it + (intent.accountUuid to AccountSkinDialogState()) }
             }
@@ -366,6 +356,48 @@ class AccountManageViewModel @Inject constructor(
             is AccountManageIntent.RefreshAccount -> refreshAccount(intent.account)
             is AccountManageIntent.SaveLocalSkin -> saveLocalSkin(intent)
             is AccountManageIntent.ResetSkin -> resetSkin(intent.account)
+        }
+    }
+
+    /**
+     * 选中皮肤后，先在 VM 层做文件合法性校验，再推进后续 Dialog 流程状态
+     */
+    private fun onSkinPicked(intent: AccountManageIntent.OnSkinPicked) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheFile = File(
+                PathManager.DIR_IMAGE_CACHE,
+                "skin_pick_${intent.accountUuid}_${UUID.randomUUID()}"
+            )
+
+            runCatching {
+                context.copyLocalFile(intent.uri, cacheFile)
+                validateSkinFile(cacheFile)
+            }.onSuccess { isValid ->
+                if (!isValid) {
+                    emitError(
+                        context.getString(R.string.generic_warning),
+                        context.getString(R.string.account_change_skin_invalid)
+                    )
+                    return@launch
+                }
+
+                _accountSkinDialogStateMap.update { stateMap ->
+                    val oldState = stateMap[intent.accountUuid] ?: AccountSkinDialogState()
+                    stateMap + (
+                        intent.accountUuid to oldState.copy(
+                            pendingSkinData = ChangeSkin.ChangeSkinData(skinUri = intent.uri),
+                            showSkinModelSelector = true
+                        )
+                    )
+                }
+            }.onFailure { th ->
+                emitError(
+                    context.getString(R.string.generic_error),
+                    context.getString(R.string.account_change_skin_failed_to_import) + "\r\n" + th.getMessageOrToString()
+                )
+            }
+
+            FileUtils.deleteQuietly(cacheFile)
         }
     }
 
