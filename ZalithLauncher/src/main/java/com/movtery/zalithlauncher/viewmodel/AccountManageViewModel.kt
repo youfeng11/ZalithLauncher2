@@ -26,6 +26,7 @@ import androidx.lifecycle.viewModelScope
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.context.copyLocalFile
 import com.movtery.zalithlauncher.context.getFileName
+import com.movtery.zalithlauncher.coroutine.combine as typedCombine
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.account.Account
@@ -247,22 +248,22 @@ class AccountManageViewModel @Inject constructor(
     /**
      * 账号数据状态流统一管理
      */
-    val profileUiState: StateFlow<ProfileUiState> = kotlinxCombine(
+    val profileUiState: StateFlow<ProfileUiState> = typedCombine(
         AccountsManager.accountsFlow,
         AccountsManager.currentAccountFlow,
         AccountsManager.authServersFlow,
         _accountCapeOpMap,
-        _accountSkinOpMap
-    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap ->
+        _accountSkinOpMap,
+        _accountSkinDialogStateMap
+    ) { accountsFlow, currentAccountFlow, authServersFlow, accountCapeOpMap, accountSkinOpMap, accountSkinDialogStateMap ->
         ProfileUiState(
             accounts = accountsFlow,
             currentAccount = currentAccountFlow,
             authServers = authServersFlow,
             accountCapeOpMap = accountCapeOpMap,
-            accountSkinOpMap = accountSkinOpMap
+            accountSkinOpMap = accountSkinOpMap,
+            accountSkinDialogStateMap = accountSkinDialogStateMap
         )
-    }.kotlinxCombine(_accountSkinDialogStateMap) { baseState, accountSkinDialogStateMap ->
-        baseState.copy(accountSkinDialogStateMap = accountSkinDialogStateMap)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
