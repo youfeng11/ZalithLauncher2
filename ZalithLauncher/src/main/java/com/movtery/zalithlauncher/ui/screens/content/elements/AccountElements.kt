@@ -1117,6 +1117,8 @@ fun SelectSkinModelDialog(
     onDismissRequest: () -> Unit = {},
     onSelected: (SkinModelType) -> Unit = {}
 ) {
+    val shownRecommendedModel = remember { recommendedModel }
+
     Dialog(onDismissRequest = onDismissRequest) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxHeight(),
@@ -1159,14 +1161,14 @@ fun SelectSkinModelDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val steveText = if (recommendedModel == SkinModelType.STEVE) {
+                        val steveText = if (shownRecommendedModel == SkinModelType.STEVE) {
                             stringResource(
                                 R.string.account_change_skin_recommended,
                                 stringResource(R.string.account_change_skin_model_steve)
                             )
                         } else stringResource(R.string.account_change_skin_model_steve)
 
-                        val alexText = if (recommendedModel == SkinModelType.ALEX) {
+                        val alexText = if (shownRecommendedModel == SkinModelType.ALEX) {
                             stringResource(
                                 R.string.account_change_skin_recommended,
                                 stringResource(R.string.account_change_skin_model_alex)
@@ -1496,17 +1498,17 @@ fun ChangeSkinDialog(
         SelectSkinModelDialog(
             recommendedModel = recommendedModel,
             onDismissRequest = {
+                onShowModelSelectorChange(false)
                 //关闭时，一并重置已选择的皮肤
                 onPendingSkinDataChange(null)
                 loadSkin()
-                onShowModelSelectorChange(false)
             },
             onSelected = { model ->
+                onShowModelSelectorChange(false)
                 val data = pendingSkinData as? ChangeSkin.ChangeSkinData
                 onPendingSkinDataChange(data?.copy(
                     skinModel = model
                 ))
-                onShowModelSelectorChange(false)
             }
         )
     }
