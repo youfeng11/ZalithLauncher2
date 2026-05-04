@@ -629,6 +629,22 @@ fun GameScreen(
                     onTouch = { viewModel.switchControlLayer(HideLayerWhen.None) },
                     gamepadViewModel = gamepadViewModel.takeIf { AllSettings.gamepadControl.state }
                 )
+
+                //摇杆控制层（并入控制布局）
+                viewModel.observableLayout?.let { layout ->
+                    val special by layout.special.collectAsStateWithLifecycle()
+                    JoystickControlLayout(
+                        screenSize = screenSize,
+                        isGrabbing = isGrabbing,
+                        special = special,
+                        defaultStyle = viewModel.launcherJoystickStyle,
+                        hideLayerWhen = viewModel.controlLayerHideState,
+                        viewModel = joystickMovementViewModel,
+                        onKeyEvent = { event, pressed ->
+                            viewModel.onKeyEvent(event, pressed)
+                        }
+                    )
+                }
             }
 
             //物品栏触发层
@@ -646,21 +662,6 @@ fun GameScreen(
                 onReleasePointer = { viewModel.occupiedPointers.remove(it) }
             )
 
-            //摇杆控制层
-            viewModel.observableLayout?.let { layout ->
-                val special by layout.special.collectAsStateWithLifecycle()
-                JoystickControlLayout(
-                    screenSize = screenSize,
-                    isGrabbing = isGrabbing,
-                    special = special,
-                    defaultStyle = viewModel.launcherJoystickStyle,
-                    hideLayerWhen = viewModel.controlLayerHideState,
-                    viewModel = joystickMovementViewModel,
-                    onKeyEvent = { event, pressed ->
-                        viewModel.onKeyEvent(event, pressed)
-                    }
-                )
-            }
         }
 
         //陀螺仪控制
