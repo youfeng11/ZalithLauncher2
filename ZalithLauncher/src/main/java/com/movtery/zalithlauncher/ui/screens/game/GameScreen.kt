@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -50,7 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerId
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -62,7 +60,6 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -1106,41 +1103,11 @@ private fun JoystickControlLayout(
             }
         }
 
-        val isManageMode = viewModel.operation == JoystickManageOperation.Manage
-
         StyleableJoystick(
             modifier = Modifier
                 .offset {
                     IntOffset(x = position.x.toInt(), y = position.y.toInt())
-                }
-                .then(
-                    if (isManageMode) {
-                        Modifier.pointerInput(screenSize, size, layoutDirection) {
-                            detectDragGestures(
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    val halfSize = with(density) { size.roundToPx() / 2f }
-                                    val newCenterX = (change.position.x + dragAmount.x)
-                                        .coerceIn(halfSize, screenSize.width - halfSize)
-                                    val newCenterY = (change.position.y + dragAmount.y)
-                                        .coerceIn(halfSize, screenSize.height - halfSize)
-
-                                    val percentageX = (newCenterX / screenSize.width * 10000f).roundToInt()
-                                    val percentageY = (newCenterY / screenSize.height * 10000f).roundToInt()
-
-                                    AllSettings.joystickControlX.updateState(percentageX.coerceIn(0, 10000))
-                                    AllSettings.joystickControlY.updateState(percentageY.coerceIn(0, 10000))
-                                },
-                                onDragEnd = {
-                                    AllSettings.joystickControlX.save()
-                                    AllSettings.joystickControlY.save()
-                                }
-                            )
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                },
             style = if (AllSettings.joystickUseStyleByLayout.state) {
                 //启用后，优先使用控制布局提供的样式
                 joystickStyle ?: defaultStyle
@@ -1149,7 +1116,7 @@ private fun JoystickControlLayout(
             },
             size = size,
             onDirectionChanged = { direction ->
-                if (!isManageMode) viewModel.onListen(direction)
+                viewModel.onListen(direction)
             },
             deadZoneRatio = AllSettings.joystickDeadZoneRatio.state / 100f,
             lockThreshold = AllSettings.joystickLockThreshold.state / 100f,
