@@ -454,6 +454,7 @@ private suspend fun PointerInputScope.simpleDrag(
 
                             if (hitTest(pos)) {
                                 activePointer = pointerId
+                                change.consume()
                                 onPointerMove(pos)
                             }
                         }
